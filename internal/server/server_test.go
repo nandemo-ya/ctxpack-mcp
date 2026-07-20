@@ -2,20 +2,53 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/nandemo-ya/ctxpack-mcp/internal/ctxpack"
 )
+
+// fakeCtxpack installs a fake ctxpack that answers --version and otherwise runs
+// body, and returns a runner wired to it.
+func fakeCtxpack(t *testing.T, body string) *ctxpack.Runner {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the fixture is a shell script")
+	}
+
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv(ctxpack.EnvBinary, "")
+
+	dir := t.TempDir()
+	script := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"--version\" ]; then echo 'ctxpack 0.4.0'; exit 0; fi\n" +
+		body + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "ctxpack"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	return &ctxpack.Runner{Resolver: ctxpack.Resolver{FallbackDirs: []string{dir}}}
+}
 
 // connect wires a client to the server over an in-memory transport.
 func connect(t *testing.T) *mcp.ClientSession {
+	t.Helper()
+	return connectWith(t, fakeCtxpack(t, `printf '%s' '{"ok":true}'`))
+}
+
+func connectWith(t *testing.T, runner *ctxpack.Runner) *mcp.ClientSession {
 	t.Helper()
 
 	ctx := context.Background()
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 
-	serverSession, err := New("test").Connect(ctx, serverTransport, nil)
+	serverSession, err := newWithRunner("test", runner).Connect(ctx, serverTransport, nil)
 	if err != nil {
 		t.Fatalf("connect server: %v", err)
 	}
@@ -114,37 +147,160 @@ func requires(tool *mcp.Tool, field string) bool {
 	return false
 }
 
-func TestCallToolReportsNotImplemented(t *testing.T) {
-	session := connect(t)
+func TestPackReturnsCtxpackJSONAsStructuredContent(t *testing.T) {
+	const output = `{"ok":true,"title":"Example","stats":{"saved_tokens":34300}}`
+	session := connectWith(t, fakeCtxpack(t, `printf '%s' '`+output+`'`))
 
-	calls := []struct {
-		tool string
-		args map[string]any
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "pack",
+		Arguments: map[string]any{"source": "https://example.com"},
+	})
+	if err != nil {
+		t.Fatalf("call pack: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("pack failed: %s", text(res))
+	}
+
+	// Text content carries the same payload, so clients that ignore
+	// structuredContent still see the result.
+	if got := text(res); got != output {
+		t.Errorf("text content = %s, want %s", got, output)
+	}
+
+	var structured map[string]any
+	if err := json.Unmarshal(mustJSON(t, res.StructuredContent), &structured); err != nil {
+		t.Fatalf("structured content is not an object: %v", err)
+	}
+	if structured["title"] != "Example" {
+		t.Errorf("structured content = %v, want the upstream fields preserved", structured)
+	}
+}
+
+func TestToolErrorsCarryTheirCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     string
+		tool     string
+		args     map[string]any
+		wantCode string
+		mentions string
 	}{
-		{tool: "pack", args: map[string]any{"source": "https://example.com"}},
-		{tool: "pack_content", args: map[string]any{"content": "<h1>hi</h1>"}},
-		{tool: "stats", args: map[string]any{}},
-		{tool: "reset_stats", args: map[string]any{}},
+		{
+			name:     "javascript page",
+			body:     "echo 'needs javascript' >&2\nexit 3",
+			tool:     "pack",
+			args:     map[string]any{"source": "https://app.example.com"},
+			wantCode: "js_rendering_required",
+			mentions: "pack_content",
+		},
+		{
+			name:     "missing file",
+			body:     "echo 'file not found' >&2\nexit 2",
+			tool:     "pack",
+			args:     map[string]any{"source": "/nope.html"},
+			wantCode: "usage_error",
+		},
+		{
+			name:     "network failure",
+			body:     "echo 'network error' >&2\nexit 1",
+			tool:     "stats",
+			args:     map[string]any{},
+			wantCode: "runtime_error",
+		},
 	}
 
-	for _, call := range calls {
-		res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
-			Name:      call.tool,
-			Arguments: call.args,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := connectWith(t, fakeCtxpack(t, tt.body))
+
+			res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+				Name:      tt.tool,
+				Arguments: tt.args,
+			})
+			if err != nil {
+				t.Fatalf("call %s: transport error %v, want a tool error", tt.tool, err)
+			}
+			// Failures travel as tool output, not protocol errors, so the model
+			// can read the code and act on it.
+			if !res.IsError {
+				t.Fatalf("isError = false, want true")
+			}
+
+			var structured map[string]any
+			if err := json.Unmarshal(mustJSON(t, res.StructuredContent), &structured); err != nil {
+				t.Fatalf("structured content is not an object: %v", err)
+			}
+			if structured["code"] != tt.wantCode {
+				t.Errorf("code = %v, want %q", structured["code"], tt.wantCode)
+			}
+			if _, ok := structured["retriable"]; !ok {
+				t.Error("structured content has no retriable field")
+			}
+			if tt.mentions != "" && !strings.Contains(text(res), tt.mentions) {
+				t.Errorf("message %q does not mention %q", text(res), tt.mentions)
+			}
 		})
-		if err != nil {
-			t.Errorf("call %s: transport error %v, want a tool error", call.tool, err)
-			continue
-		}
-		// The stub must fail as tool output, not as a protocol error, so the
-		// model can read the reason instead of the client dropping the call.
-		if !res.IsError {
-			t.Errorf("call %s: isError = false, want true", call.tool)
-		}
-		if !strings.Contains(text(res), "not implemented") {
-			t.Errorf("call %s: content %q does not explain the stub", call.tool, text(res))
-		}
 	}
+}
+
+func TestResetStatsReturnsConfirmationText(t *testing.T) {
+	session := connectWith(t, fakeCtxpack(t, "echo 'Reset 12 recorded run(s).'"))
+
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "reset_stats",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call reset_stats: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("reset_stats failed: %s", text(res))
+	}
+	if got := text(res); got != "Reset 12 recorded run(s)." {
+		t.Errorf("text = %q", got)
+	}
+}
+
+func TestMissingCtxpackIsReportedPerCallNotAtStartup(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv(ctxpack.EnvBinary, "")
+
+	// The server must still connect and list tools, so the client can show the
+	// user how to install ctxpack instead of failing to start.
+	runner := &ctxpack.Runner{Resolver: ctxpack.Resolver{FallbackDirs: []string{filepath.Join(t.TempDir(), "empty")}}}
+	session := connectWith(t, runner)
+
+	tools, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	if len(tools.Tools) != 4 {
+		t.Errorf("got %d tools, want 4", len(tools.Tools))
+	}
+
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "stats",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call stats: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("isError = false, want true")
+	}
+	if !strings.Contains(text(res), "brew install atani/tap/ctxpack") {
+		t.Errorf("message %q does not tell the user how to install ctxpack", text(res))
+	}
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal structured content: %v", err)
+	}
+	return data
 }
 
 func text(res *mcp.CallToolResult) string {
