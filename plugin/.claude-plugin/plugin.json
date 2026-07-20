@@ -1,7 +1,7 @@
 {
   "name": "ctxpack",
   "description": "Token-aware context extraction for agents, backed by the ctxpack CLI",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "nandemo-ya",
     "url": "https://github.com/nandemo-ya"

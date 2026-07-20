@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1](https://github.com/nandemo-ya/ctxpack-mcp/compare/v0.1.0...v0.1.1) (2026-07-20)
+
+
+### Features
+
+* publish a Claude Code plugin from this repository ([#21](https://github.com/nandemo-ya/ctxpack-mcp/issues/21)) ([b3978cc](https://github.com/nandemo-ya/ctxpack-mcp/commit/b3978cca2330250442a14532308a6a6161e7ebd4)), closes [#20](https://github.com/nandemo-ya/ctxpack-mcp/issues/20)
+
+
+### Documentation
+
+* correct the plugin install steps in the README ([#23](https://github.com/nandemo-ya/ctxpack-mcp/issues/23)) ([c3a64e2](https://github.com/nandemo-ya/ctxpack-mcp/commit/c3a64e2604a21c79838963d215ce0c32435fa606))
+
 ## 0.1.0 (2026-07-20)
 
 
