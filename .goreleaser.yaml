@@ -1,0 +1,73 @@
+# https://goreleaser.com
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ctxpack-mcp
+    main: ./cmd/ctxpack-mcp
+    binary: ctxpack-mcp
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      # Windows on arm64 is not a target for now; x64 covers the platform.
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
+archives:
+  - id: ctxpack-mcp
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin" }}Darwin
+      {{- else if eq .Os "linux" }}Linux
+      {{- else if eq .Os "windows" }}Windows
+      {{- else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  # release-please owns CHANGELOG.md; this only fills the release body.
+  use: github-native
+
+# Casks, not formulas: goreleaser deprecated `brews`, and Homebrew now expects
+# prebuilt binaries to ship as casks.
+homebrew_casks:
+  - name: ctxpack-mcp
+    binaries:
+      - ctxpack-mcp
+    repository:
+      owner: nandemo-ya
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    homepage: https://github.com/nandemo-ya/ctxpack-mcp
+    description: MCP server exposing ctxpack's token-aware context extraction as agent tools
+    dependencies:
+      # This server shells out to ctxpack, so installing one installs both.
+      - formula: atani/tap/ctxpack
+    hooks:
+      post:
+        # The binaries are unsigned, and macOS quarantines anything downloaded
+        # without a signature. Without this the first run is blocked by
+        # Gatekeeper.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+                           args: ["-dr", "com.apple.quarantine", "#{staged_path}/ctxpack-mcp"]
+          end
