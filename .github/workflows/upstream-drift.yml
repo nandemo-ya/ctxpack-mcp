@@ -58,7 +58,8 @@ jobs:
           echo "CTXPACK_BIN=$(go env GOPATH)/bin/ctxpack" >> "$GITHUB_ENV"
 
       - name: Report the installed version
-        run: "$CTXPACK_BIN" --version
+        run: |
+          "$CTXPACK_BIN" --version
 
       - name: Integration tests
         run: go test -tags integration ./...
