@@ -181,13 +181,17 @@ Distribution is layered, generic-first. MCP is a cross-client standard and ctxpa
 - `go install github.com/nandemo-ya/ctxpack-mcp/cmd/ctxpack-mcp@latest` for Go users.
 - README documents per-client setup for Claude Code, Codex CLI, Gemini CLI, and Cursor. The config is the same everywhere: run the `ctxpack-mcp` binary over stdio.
 
-### Layer 2 — MCP Registry (post-release)
+### Layer 2 — Claude Code plugin
 
-Publish a `server.json` to the official [MCP Registry](https://registry.modelcontextprotocol.io) for cross-client discovery.
+This repository is its own marketplace: `.claude-plugin/marketplace.json` at the root lists one plugin whose source is `./plugin`, and `plugin/.mcp.json` carries the server configuration. Users run `/plugin marketplace add nandemo-ya/ctxpack-mcp` and install from there, with no central registry in between — publishing is a push to `main`.
 
-### Layer 3 — Claude Code plugin (post-release, convenience only)
+The plugin ships configuration only; it cannot ship binaries, so Layer 1 remains a prerequisite. Since ctxpack is itself a Go project, `brew install` and `go install` are already familiar to the audience, and removing the hand-written client configuration is the whole benefit. Other clients are unaffected.
 
-Add a `.claude-plugin/` manifest to this repository so Claude Code users can install via the plugin marketplace. The plugin only ships MCP configuration; it cannot ship binaries, so Layer 1 remains a prerequisite. Other clients are unaffected.
+### Layer 3 — MCP Registry (deferred)
+
+Publishing a `server.json` to the official [MCP Registry](https://registry.modelcontextprotocol.io) would add cross-client discovery, but it is deferred and deliberately ranked below the plugin.
+
+The registry has no package type for a Go binary — npm, PyPI, NuGet, cargo, OCI, and MCPB are the options — so listing means republishing the release artifacts as MCPB bundles, or as an OCI image, which fits badly: `pack` reads local files, and bundling ctxpack into an image contradicts the decision not to bundle it at all. The registry also has no way to express that a separate CLI must be installed first, and it remains in preview with data resets on the table. Reconsider once it leaves preview or grows a Go-shaped distribution path.
 
 ## Upstream relationship
 

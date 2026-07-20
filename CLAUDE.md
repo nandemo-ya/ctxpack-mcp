@@ -82,7 +82,16 @@ Commits must follow conventional commits — release-please derives the version 
 
 Tags are plain semver (`v0.1.0`), unlike upstream's `ctxpack-v0.4.0`, so `go install ...@latest` resolves. Homebrew publishing uses `homebrew_casks` (goreleaser deprecated `brews`) into `nandemo-ya/homebrew-tap`, with `HOMEBREW_TAP_GITHUB_TOKEN` for cross-repo write.
 
-Issue #7 stays open for the remaining distribution layers: the MCP Registry listing and a Claude Code plugin manifest.
+The official MCP Registry listing is deferred, not forgotten; `docs/design.md` records why the Go binary makes it awkward.
+
+## Claude Code plugin
+
+The repository is its own marketplace. `.claude-plugin/marketplace.json` at the root points at `./plugin`, which holds `plugin/.claude-plugin/plugin.json` and `plugin/.mcp.json`. Publishing is a push to `main` — there is no registry step.
+
+- **The MCP config must live in `plugin/.mcp.json`.** An `mcpServers` key inside `plugin.json` is accepted by the validator and then silently ignored: `claude plugin details` reports `MCP servers (0)`. That silence is the whole trap.
+- **The plugin lives in `plugin/`, not the repository root.** A root plugin would ship the Go source and trip `--strict` on `CLAUDE.md`, which a plugin cannot load anyway.
+- **Two version fields must agree** — `plugin.json` and the marketplace entry. release-please bumps both through `extra-files`; `claude plugin tag` checks the agreement.
+- Verify with `claude plugin validate . --strict` and `claude plugin validate plugin --strict`. For an end-to-end check, point `CLAUDE_CONFIG_DIR` at a throwaway directory and install from a local path, so testing does not disturb a real configuration.
 
 ## Upstream relationship
 

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "ctxpack": {
+      "command": "ctxpack-mcp"
+    }
+  }
+}
