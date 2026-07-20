@@ -151,6 +151,25 @@ Additional failure modes introduced by the wrapper itself:
 - **Process timeout** → the server kills the child after 60 seconds and returns `code: "timeout"`, `retriable: true`. ctxpack's own URL fetch timeout is 20 seconds, so 60 seconds only triggers on pathological hangs.
 - **Malformed JSON on stdout** → `code: "unexpected_output"`, with the first part of stdout/stderr attached for debugging. This usually means a ctxpack version mismatch.
 
+## Development and CI
+
+### Testing strategy
+
+Unit tests run without ctxpack installed. Tests point `CTXPACK_BIN` at a fixture script that emits canned stdout, stderr, and exit codes, which covers argument construction, JSON passthrough, stdin piping, every exit-code mapping, timeouts, and malformed output. The `CTXPACK_BIN` override exists for GUI clients with a restricted `PATH`, and it doubles as the seam that makes the exec layer testable.
+
+Because this server's contract is entirely upstream's JSON schema and exit codes, an upstream release can break it without any change on our side. A separate integration job installs real ctxpack on Linux via `go install github.com/atani/ctxpack/cmd/ctxpack@VERSION` (no Homebrew, so it finishes in seconds) and exercises the tools against both the minimum supported version and `@latest`. It runs weekly on a schedule as well as on pull requests, so a new upstream release surfaces on its own rather than in a user's bug report.
+
+### CI workflows
+
+`ci.yml` runs on pushes to `main` and on pull requests, with two jobs:
+
+- **test** — `go test ./...` across `ubuntu-latest` and `macos-latest`.
+- **lint** — `gofmt -l` and `go vet ./...`.
+
+Both use `go-version-file: go.mod` so the toolchain never drifts from the module's declared minimum. Actions are pinned to commit SHAs with version comments, and workflow `permissions` default to `contents: read`. These conventions follow upstream ctxpack, which also runs `pinact` to keep SHA pins current.
+
+Release automation (goreleaser, release-please) lands with the first release rather than up front; see [Distribution](#distribution).
+
 ## Distribution
 
 Distribution is layered, generic-first. MCP is a cross-client standard and ctxpack itself is agent-agnostic, so nothing in the core path may assume a specific client.
