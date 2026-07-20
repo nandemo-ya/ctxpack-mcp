@@ -10,10 +10,17 @@
       "name": "ctxpack",
       "source": "./plugin",
       "description": "Token-aware context extraction for agents, backed by the ctxpack CLI",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "MIT",
       "homepage": "https://github.com/nandemo-ya/ctxpack-mcp",
-      "keywords": ["mcp", "context", "tokens", "extraction", "markdown", "ctxpack"]
+      "keywords": [
+        "mcp",
+        "context",
+        "tokens",
+        "extraction",
+        "markdown",
+        "ctxpack"
+      ]
     }
   ]
 }
