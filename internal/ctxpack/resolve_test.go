@@ -229,3 +229,19 @@ func TestResolveReportsUnreadableVersion(t *testing.T) {
 		t.Errorf("code = %q, want %q", got, CodeVersionUnsupported)
 	}
 }
+
+func TestCheckExecutableRejectsADirectory(t *testing.T) {
+	isolate(t)
+	// A directory named ctxpack on PATH must not be mistaken for the binary.
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, binaryName), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	r := &Resolver{FallbackDirs: []string{dir}}
+	if _, err := r.Resolve(context.Background()); err == nil {
+		t.Fatal("Resolve succeeded, want an error")
+	} else if got := codeOf(t, err); got != CodeNotInstalled {
+		t.Errorf("code = %q, want %q", got, CodeNotInstalled)
+	}
+}

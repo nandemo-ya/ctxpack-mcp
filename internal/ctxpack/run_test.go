@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -305,5 +306,37 @@ func TestEmptyInputsAreRejectedWithoutRunning(t *testing.T) {
 
 	if f.ran() {
 		t.Error("ctxpack was executed despite invalid input")
+	}
+}
+
+func TestLongOutputIsTruncatedInErrors(t *testing.T) {
+	// A ctxpack that floods stdout must not flood the model's context with it.
+	f := scriptedCtxpack(t, `/bin/dd if=/dev/zero bs=1 count=5000 2>/dev/null | /usr/bin/tr '\0' 'x'`)
+
+	_, err := f.runner.Stats(context.Background())
+	if err == nil {
+		t.Fatal("Stats succeeded, want an error")
+	}
+	if got := codeOf(t, err); got != CodeUnexpectedOutput {
+		t.Fatalf("code = %q, want %q", got, CodeUnexpectedOutput)
+	}
+	if len(err.Error()) > maxCapturedOutput+300 {
+		t.Errorf("error message is %d bytes; truncation did not apply", len(err.Error()))
+	}
+	if !strings.Contains(err.Error(), "truncated") {
+		t.Errorf("message %q does not say it was truncated", err.Error())
+	}
+}
+
+func TestErrorUnwrapsToTheProcessFailure(t *testing.T) {
+	f := scriptedCtxpack(t, "exit 2")
+
+	_, err := f.runner.Pack(context.Background(), "x", Options{})
+	if err == nil {
+		t.Fatal("Pack succeeded, want an error")
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Error("the process failure is not reachable through errors.As")
 	}
 }

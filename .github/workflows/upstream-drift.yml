@@ -1,0 +1,65 @@
+# This server's contract is entirely ctxpack's JSON shape and exit codes, so an
+# upstream release can break it with no change on our side. These tests run
+# against a real ctxpack to notice that before users do.
+name: Upstream drift
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays, 06:00 UTC. The point of the schedule is to catch upstream
+    # releases that land between our own changes.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: ctxpack (${{ matrix.channel }})
+    runs-on: ubuntu-latest
+    # A break against the newest ctxpack is a signal, not a reason to block an
+    # unrelated PR. On the schedule it fails loudly, which is where we want to
+    # hear about it.
+    continue-on-error: ${{ github.event_name == 'pull_request' && matrix.channel == 'latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [minimum, latest]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve the ctxpack ref to install
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ matrix.channel }}" = "minimum" ]; then
+            # Mirrors MinVersion in internal/ctxpack/version.go. If that moves
+            # without this pin moving, TestRealVersionMeetsMinimum fails here.
+            ref="ctxpack-v0.4.0"
+          else
+            # Upstream's only plain-semver tag is v0.1.0 from its Python era,
+            # which has no Go command, so `go install ...@latest` resolves to a
+            # module that cannot build. Ask for the newest release instead.
+            ref="$(gh api repos/atani/ctxpack/releases/latest --jq .tag_name)"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Install ctxpack ${{ steps.resolve.outputs.ref }}
+        run: |
+          go install "github.com/atani/ctxpack/cmd/ctxpack@${{ steps.resolve.outputs.ref }}"
+          # Point the server at the binary explicitly rather than trusting PATH,
+          # which also exercises the CTXPACK_BIN override.
+          echo "CTXPACK_BIN=$(go env GOPATH)/bin/ctxpack" >> "$GITHUB_ENV"
+
+      - name: Report the installed version
+        run: |
+          "$CTXPACK_BIN" --version
+
+      - name: Integration tests
+        run: go test -tags integration ./...
