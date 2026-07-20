@@ -176,9 +176,9 @@ Distribution is layered, generic-first. MCP is a cross-client standard and ctxpa
 
 ### Layer 1 — binary distribution (initial release scope)
 
-- GitHub Releases with multi-platform builds via goreleaser (macOS arm64/x64, Linux arm64/x64, Windows x64).
-- Homebrew: `brew install nandemo-ya/tap/ctxpack-mcp`, with the formula declaring `depends_on "atani/tap/ctxpack"` so one command installs both binaries.
-- `go install github.com/nandemo-ya/ctxpack-mcp@latest` for Go users.
+- GitHub Releases with multi-platform builds via goreleaser (macOS arm64/x64, Linux arm64/x64, Windows x64), tagged with plain semver so `go install ...@latest` resolves.
+- Homebrew: `brew install --cask nandemo-ya/tap/ctxpack-mcp`, with the cask declaring `depends_on formula: "atani/tap/ctxpack"` so one command installs both binaries. A cask rather than a formula because goreleaser deprecated `brews` in favor of `homebrew_casks`.
+- `go install github.com/nandemo-ya/ctxpack-mcp/cmd/ctxpack-mcp@latest` for Go users.
 - README documents per-client setup for Claude Code, Codex CLI, Gemini CLI, and Cursor. The config is the same everywhere: run the `ctxpack-mcp` binary over stdio.
 
 ### Layer 2 — MCP Registry (post-release)
