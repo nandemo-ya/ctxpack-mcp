@@ -50,7 +50,8 @@ Every client runs the same binary over stdio; only the config file differs.
 ### Claude Code
 
 ```bash
-claude mcp add ctxpack -- ctxpack-mcp
+claude mcp add ctxpack -- ctxpack-mcp          # this project only
+claude mcp add -s user ctxpack -- ctxpack-mcp  # every project
 ```
 
 Or install the plugin, which carries the same configuration:
@@ -58,9 +59,12 @@ Or install the plugin, which carries the same configuration:
 ```
 /plugin marketplace add nandemo-ya/ctxpack-mcp
 /plugin install ctxpack@nandemo-ya
+/reload-plugins
 ```
 
-The plugin ships configuration only — install the binaries first, as above. Restart Claude Code afterwards; MCP servers from a plugin are registered when a session starts.
+The plugin ships configuration only — install the binaries first, as above. `/reload-plugins` registers the server without restarting the session. Confirm with `claude mcp list`; the entry appears as `plugin:ctxpack:ctxpack`.
+
+Pick one of the two, not both: a plugin install plus a manual `claude mcp add ctxpack` registers the same server twice, and the agent sees two copies of every tool. Note also that the plugin exposes tools as `mcp__plugin_ctxpack_ctxpack__pack` rather than `mcp__ctxpack__pack`, which matters if you write permission rules against tool names.
 
 Or add it to `.mcp.json` in your project to share it with the repository:
 
@@ -171,6 +175,8 @@ Failures come back as tool errors carrying a code, so an agent can branch on the
 ```
 
 `CTXPACK_BIN` takes precedence over `PATH`. If it points at something that is not executable, the server says so rather than quietly searching elsewhere.
+
+The plugin's bundled config carries no `env` block, so there is nothing to edit there. Either export `CTXPACK_BIN` in the environment your client is launched from, or drop the plugin and register the server by hand with the config above.
 
 **The server starts but every call fails.** That is deliberate. A missing ctxpack does not stop the server from starting, so your client can show you the install instructions instead of failing to connect.
 
