@@ -312,3 +312,30 @@ func text(res *mcp.CallToolResult) string {
 	}
 	return b.String()
 }
+
+func TestPackContentPassesContentThrough(t *testing.T) {
+	// The fixture records stdin so a dropped pipe fails loudly here rather than
+	// showing up as an empty pack later.
+	dir := t.TempDir()
+	sink := filepath.Join(dir, "stdin")
+	session := connectWith(t, fakeCtxpack(t, "/bin/cat > "+sink+`; printf '%s' '{"ok":true}'`))
+
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "pack_content",
+		Arguments: map[string]any{"content": "<h1>hi</h1>", "query": "greeting"},
+	})
+	if err != nil {
+		t.Fatalf("call pack_content: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("pack_content failed: %s", text(res))
+	}
+
+	got, err := os.ReadFile(sink)
+	if err != nil {
+		t.Fatalf("read recorded stdin: %v", err)
+	}
+	if string(got) != "<h1>hi</h1>" {
+		t.Errorf("ctxpack received %q on stdin", got)
+	}
+}
