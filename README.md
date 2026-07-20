@@ -1,5 +1,10 @@
 # ctxpack-mcp
 
+[![CI](https://github.com/nandemo-ya/ctxpack-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/nandemo-ya/ctxpack-mcp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/nandemo-ya/ctxpack-mcp?sort=semver)](https://github.com/nandemo-ya/ctxpack-mcp/releases/latest)
+[![Go](https://img.shields.io/github/go-mod/go-version/nandemo-ya/ctxpack-mcp)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **MCP server for [ctxpack](https://github.com/atani/ctxpack), token-aware context extraction for AI agents.**
 
 Agents burn context on navigation, scripts, cookie banners, and footers. ctxpack strips that and returns compact Markdown with a measured token saving. This server puts it in front of any MCP client, so an agent can pack a page before reading it instead of pulling raw HTML into its window.
@@ -178,6 +183,14 @@ They also run weekly in CI against the minimum supported ctxpack and the newest 
 
 Design notes are in [`docs/design.md`](docs/design.md).
 
+## Acknowledgments
+
+All of the hard part belongs to [**ctxpack**](https://github.com/atani/ctxpack) by [@atani](https://github.com/atani): the readability extraction, the chrome filtering, the query-based section reordering, the token estimation, and the cumulative savings history. This repository adds a protocol adapter on top and nothing else. If ctxpack is useful to you, star that project rather than this one.
+
+ctxpack's roadmap mentions a native MCP mode. If upstream ships one, this project will either be contributed there or step aside — staying thin is partly about keeping that option cheap.
+
+Issues about extraction quality — content wrongly dropped, sections ordered oddly, token counts that look off — belong upstream. Issues about tool shapes, error codes, client configuration, or binary discovery belong here.
+
 ## License
 
-MIT. ctxpack itself is a separate project by [@atani](https://github.com/atani), also MIT.
+MIT, matching ctxpack.
