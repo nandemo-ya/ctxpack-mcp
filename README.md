@@ -53,6 +53,15 @@ Every client runs the same binary over stdio; only the config file differs.
 claude mcp add ctxpack -- ctxpack-mcp
 ```
 
+Or install the plugin, which carries the same configuration:
+
+```
+/plugin marketplace add nandemo-ya/ctxpack-mcp
+/plugin install ctxpack@nandemo-ya
+```
+
+The plugin ships configuration only — install the binaries first, as above. Restart Claude Code afterwards; MCP servers from a plugin are registered when a session starts.
+
 Or add it to `.mcp.json` in your project to share it with the repository:
 
 ```json
@@ -177,6 +186,13 @@ Integration tests run against a real ctxpack and are behind a build tag:
 
 ```bash
 go test -tags integration ./...
+```
+
+The Claude Code plugin manifests have their own check:
+
+```bash
+claude plugin validate . --strict         # the marketplace
+claude plugin validate plugin --strict    # the plugin
 ```
 
 They also run weekly in CI against the minimum supported ctxpack and the newest upstream release. This server's contract is entirely upstream's JSON shape and exit codes, so an upstream change can break it with no change here.
