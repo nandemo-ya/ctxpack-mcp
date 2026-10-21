@@ -1,6 +1,6 @@
 module github.com/nandemo-ya/ctxpack-mcp
 
-go 1.25.0
+go 1.27.3
 
 require github.com/modelcontextprotocol/go-sdk v1.6.1
 
