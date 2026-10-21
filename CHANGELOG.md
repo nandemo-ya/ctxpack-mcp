@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/nandemo-ya/ctxpack-mcp/compare/v0.1.1...v0.1.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* build with Go 1.27.3 to pick up the CVE-2026-111943 fix ([#24](https://github.com/nandemo-ya/ctxpack-mcp/issues/24)) ([a092977](https://github.com/nandemo-ya/ctxpack-mcp/commit/a0929774441ae2cbd6005d69554820a4d075bb85))
+
 ## [0.1.1](https://github.com/nandemo-ya/ctxpack-mcp/compare/v0.1.0...v0.1.1) (2026-07-20)
 
 
